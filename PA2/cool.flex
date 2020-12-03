@@ -50,15 +50,19 @@ extern YYSTYPE cool_yylval;
  * Define names for regular expressions here.
  */
 
-LETTER      [a-zA-Z_]
-DIGIT       [0-9]
+LETTER          [a-zA-Z_]
+DIGIT           [0-9]
 
-TYPEID      [A-Z]({LETTER}|{DIGIT})*
-OBJECTID    [a-z]({LETTER}|{DIGIT})*
+TYPEID          [A-Z]({LETTER}|{DIGIT})*
+OBJECTID        [a-z]({LETTER}|{DIGIT})*
 
 
 DARROW          =>
 ASSIGN          <-
+
+DBL_QT          \"
+
+%x STRING
 
 %%
 
@@ -70,26 +74,61 @@ ASSIGN          <-
  /*
   *  The multiple-character operators.
   */
-{DARROW}		{ return (DARROW); }
-{ASSIGN}		{ return (ASSIGN); }
+{DARROW}        { return (DARROW); }
+{ASSIGN}        { return (ASSIGN); }
 
  /*
   * Keywords are case-insensitive except for the values true and false,
   * which must begin with a lower-case letter.
   */
 
-[ \t]           // eat up whitespace
-"\n"            { curr_lineno++; }
+[ \f\r\t\v]           // eat up whitespace
+"\n" { curr_lineno++; }
 
 "{"             { return '{'; }
 "}"             { return '}'; }
+"["             { return '['; }
+"]"             { return ']'; }
 "("             { return '('; }
 ")"             { return ')'; }
 ":"             { return ':'; }
 ";"             { return ';'; }
+"+"             { return '+'; }
+"-"             { return '-'; }
+"*"             { return '*'; }
+"/"             { return '/'; }
+"="             { return '='; }
+"<"             { return '<'; }
+"."             { return '.'; }
+"@"             { return '@'; }
+"~"             { return '~'; }
+
+<INITIAL>{DBL_QT} {
+                    BEGIN(STRING);
+                }
+
+<STRING>{DBL_QT} {
+                    printf("\n\nend string:");
+                    printf("%s", yytext);
+                    printf("\n\n");
+                    BEGIN(INITIAL);
+                }
 
 (?i:class)      { return (CLASS); }
+(?i:else)       { return (ELSE); }
+(?i:fi)         { return (FI); }
+(?i:if)         { return (IF); }
+(?i:in)         { return (IN); }
 (?i:inherits)   { return (INHERITS); }
+(?i:let)        { return (LET); }
+(?i:loop)       { return (LOOP); }
+(?i:pool)       { return (POOL); }
+(?i:then)       { return (THEN); }
+(?i:while)      { return (WHILE); }
+(?i:case)       { return (CASE); }
+(?i:esac)       { return (ESAC); }
+(?i:new)        { return (NEW); }
+(?i:isvoid)     { return (ISVOID); }
 
 {TYPEID}        {
                     cool_yylval.symbol = idtable.add_string(yytext);
