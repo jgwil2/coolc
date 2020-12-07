@@ -52,9 +52,13 @@ extern YYSTYPE cool_yylval;
 
 LETTER          [a-zA-Z_]
 DIGIT           [0-9]
+DIGITS          [0-9]+
 
 TYPEID          [A-Z]({LETTER}|{DIGIT})*
 OBJECTID        [a-z]({LETTER}|{DIGIT})*
+
+TRUE            true
+FALSE           false
 
 
 DARROW          =>
@@ -77,42 +81,14 @@ DBL_QT          \"
 {DARROW}        { return (DARROW); }
 {ASSIGN}        { return (ASSIGN); }
 
- /*
-  * Keywords are case-insensitive except for the values true and false,
-  * which must begin with a lower-case letter.
-  */
 
 [ \f\r\t\v]           // eat up whitespace
 "\n" { curr_lineno++; }
 
-"{"             { return '{'; }
-"}"             { return '}'; }
-"["             { return '['; }
-"]"             { return ']'; }
-"("             { return '('; }
-")"             { return ')'; }
-":"             { return ':'; }
-";"             { return ';'; }
-"+"             { return '+'; }
-"-"             { return '-'; }
-"*"             { return '*'; }
-"/"             { return '/'; }
-"="             { return '='; }
-"<"             { return '<'; }
-"."             { return '.'; }
-"@"             { return '@'; }
-"~"             { return '~'; }
-
-<INITIAL>{DBL_QT} {
-                    BEGIN(STRING);
-                }
-
-<STRING>{DBL_QT} {
-                    printf("\n\nend string:");
-                    printf("%s", yytext);
-                    printf("\n\n");
-                    BEGIN(INITIAL);
-                }
+ /*
+  * Keywords are case-insensitive except for the values true and false,
+  * which must begin with a lower-case letter.
+  */
 
 (?i:class)      { return (CLASS); }
 (?i:else)       { return (ELSE); }
@@ -130,6 +106,35 @@ DBL_QT          \"
 (?i:new)        { return (NEW); }
 (?i:isvoid)     { return (ISVOID); }
 
+"{"             { return '{'; }
+"}"             { return '}'; }
+"["             { return '['; }
+"]"             { return ']'; }
+"("             { return '('; }
+")"             { return ')'; }
+":"             { return ':'; }
+";"             { return ';'; }
+","             { return ','; }
+"+"             { return '+'; }
+"-"             { return '-'; }
+"*"             { return '*'; }
+"/"             { return '/'; }
+"="             { return '='; }
+"<"             { return '<'; }
+"."             { return '.'; }
+"@"             { return '@'; }
+"~"             { return '~'; }
+
+{TRUE}          {
+                    cool_yylval.boolean = true;
+                    return BOOL_CONST;
+                }
+
+{FALSE}         {
+                    cool_yylval.boolean = false;
+                    return BOOL_CONST;
+                }
+
 {TYPEID}        {
                     cool_yylval.symbol = idtable.add_string(yytext);
                     return TYPEID;
@@ -140,6 +145,10 @@ DBL_QT          \"
                     return OBJECTID;
                 }
 
+{DIGITS}        {
+                    cool_yylval.symbol = inttable.add_string(yytext);
+                    return INT_CONST;
+                }
 
  /*
   *  String constants (C syntax)
@@ -148,5 +157,42 @@ DBL_QT          \"
   *
   */
 
+char string_buf[MAX_STR_CONST];
+char* string_buf_ptr;
+
+{DBL_QT}        {   /* set pointer to 0-index of string buffer */
+                    string_buf_ptr = string_buf;
+                    BEGIN(STRING);
+                }
+
+<STRING>{DBL_QT} {  /* closing quote - terminate string and */
+                    /* return token type and value to parser */
+                    BEGIN(INITIAL);
+                    *string_buf_ptr = '\0';
+                    cool_yylval.symbol = stringtable.add_string(string_buf);
+                    return STR_CONST;
+                }
+
+<STRING>\n      { /* TODO handle unterminated str const err */ }
+
+    /* whitespace chars */
+<STRING>\\n     { *string_buf_ptr++ = '\n'; }
+<STRING>\\t     { *string_buf_ptr++ = '\t'; }
+<STRING>\\r     { *string_buf_ptr++ = '\r'; }
+<STRING>\\b     { *string_buf_ptr++ = '\b'; }
+<STRING>\\f     { *string_buf_ptr++ = '\f'; }
+
+    /* remove? */
+<STRING>\\(.|\n) {
+                    *string_buf_ptr++ = yytext[1];
+                }
+
+<STRING>[^\\\n({DBL_QT})] {
+                    char* yptr = yytext;
+
+                    while (*yptr) {
+                        *string_buf_ptr++ = *yptr++;
+                    }
+                }
 
 %%
