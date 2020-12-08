@@ -43,7 +43,8 @@ extern YYSTYPE cool_yylval;
  *  Add Your own definitions here
  */
 
-
+int max_strlen_err();
+bool is_max_strlen_err();
 %}
 
 /*
@@ -66,24 +67,40 @@ ASSIGN          <-
 
 DBL_QT          \"
 
+%x COMMENT
 %x STRING
 
 %%
 
+[ \f\r\t\v]           // eat up whitespace
+"\n" { curr_lineno++; }
+
  /*
   *  Nested comments
   */
+"*)"            {
+                    cool_yylval.error_msg = "Unmatched *)";
+                    return ERROR;
+                }
+"(*"            { BEGIN(COMMENT); }
 
+<COMMENT>"\n"   { curr_lineno++; }
+<COMMENT>[^*\n]*      /* eat up everything except "*" */
+<COMMENT>"*"+[^*)\n]* /* eat up "*"s not followed by ")" */
+<COMMENT>"*)"   { BEGIN(INITIAL); }
+<COMMENT><<EOF>> {
+                    cool_yylval.error_msg = "EOF in comment";
+                    BEGIN(INITIAL);
+                    return ERROR;
+                }
+
+[--.*\n]
 
  /*
   *  The multiple-character operators.
   */
 {DARROW}        { return (DARROW); }
 {ASSIGN}        { return (ASSIGN); }
-
-
-[ \f\r\t\v]           // eat up whitespace
-"\n" { curr_lineno++; }
 
  /*
   * Keywords are case-insensitive except for the values true and false,
@@ -165,25 +182,55 @@ char* string_buf_ptr;
                     BEGIN(STRING);
                 }
 
+<STRING><<EOF>> {
+                    cool_yylval.error_msg = "EOF in string constant";
+                    BEGIN(INITIAL);
+                    return ERROR;
+}
+
 <STRING>{DBL_QT} {  /* closing quote - terminate string and */
                     /* return token type and value to parser */
+                    if (is_max_strlen_err()) return max_strlen_err();
                     BEGIN(INITIAL);
                     *string_buf_ptr = '\0';
                     cool_yylval.symbol = stringtable.add_string(string_buf);
                     return STR_CONST;
                 }
 
-<STRING>\n      { /* TODO handle unterminated str const err */ }
+<STRING>\n      {
+                    curr_lineno++;
+                    cool_yylval.error_msg = "Unterminated string constant";
+                    return ERROR;
+                }
 
     /* whitespace chars */
-<STRING>\\n     { *string_buf_ptr++ = '\n'; }
-<STRING>\\t     { *string_buf_ptr++ = '\t'; }
-<STRING>\\r     { *string_buf_ptr++ = '\r'; }
-<STRING>\\b     { *string_buf_ptr++ = '\b'; }
-<STRING>\\f     { *string_buf_ptr++ = '\f'; }
+<STRING>\\n     {
+                    if (is_max_strlen_err()) return max_strlen_err();
+                    *string_buf_ptr++ = '\n';
+                }
 
-    /* remove? */
+<STRING>\\t     {
+                    if (is_max_strlen_err()) return max_strlen_err();
+                    *string_buf_ptr++ = '\t';
+                }
+
+<STRING>\\r     {
+                    if (is_max_strlen_err()) return max_strlen_err();
+                    *string_buf_ptr++ = '\r';
+                }
+
+<STRING>\\b     {
+                    if (is_max_strlen_err()) return max_strlen_err();
+                    *string_buf_ptr++ = '\b';
+                }
+
+<STRING>\\f     {
+                    if (is_max_strlen_err()) return max_strlen_err();
+                    *string_buf_ptr++ = '\f';
+                }
+
 <STRING>\\(.|\n) {
+                    if (is_max_strlen_err()) return max_strlen_err();
                     *string_buf_ptr++ = yytext[1];
                 }
 
@@ -191,8 +238,18 @@ char* string_buf_ptr;
                     char* yptr = yytext;
 
                     while (*yptr) {
+                        if (is_max_strlen_err()) return max_strlen_err();
                         *string_buf_ptr++ = *yptr++;
                     }
                 }
 
 %%
+
+int max_strlen_err() {
+    cool_yylval.error_msg = "Max string length exceeded";
+    return ERROR;
+}
+
+bool is_max_strlen_err() {
+    return (string_buf_ptr - string_buf + 1) > MAX_STR_CONST;
+}

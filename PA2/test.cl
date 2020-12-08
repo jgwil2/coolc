@@ -1,11 +1,12 @@
+(* models one-dimensional cellular automaton on a circle of finite radius
+   arrays are faked as Strings,
+   X's respresent live cells, dots represent dead cells,
+   no error checking is done *)
 class CellularAutomaton inherits IO {
     population_map : String;
-    dummy_val : Bool;
    
     init(map : String) : SELF_TYPE {
         {
-            dummy_val <- true;
-            dummy_val <- false;
             population_map <- map;
             self;
         }
@@ -42,6 +43,8 @@ class CellularAutomaton inherits IO {
         fi
     };
    
+    (* a cell will live if exactly 1 of itself and it's immediate
+       neighbors are alive *)
     cell_at_next_evolution(position : Int) : String {
         if (if cell(position) = "X" then 1 else 0 fi
             + if cell_left_neighbor(position) = "X" then 1 else 0 fi
@@ -49,3 +52,46 @@ class CellularAutomaton inherits IO {
             = 1)
         then
             "X"
+        else
+            '.'
+        fi
+    };
+   
+    evolve() : SELF_TYPE {
+        (let position : Int in
+        (let num : Int <- num_cells[] in
+        (let temp : String in
+            {
+                while position < num loop
+                    {
+                        temp <- temp.concat(cell_at_next_evolution(position));
+                        position <- position + 1;
+                    }
+                pool;
+                population_map <- temp;
+                self;
+            }
+        ) ) )
+    };
+};
+
+class Main {
+    cells : CellularAutomaton;
+   
+    main() : SELF_TYPE {
+        {
+            cells <- (new CellularAutomaton).init("         X         ");
+            cells.print();
+            (let countdown : Int <- 20 in
+                while countdown > 0 loop
+                    {
+                        cells.evolve();
+                        cells.print();
+                        countdown <- countdown - 1;
+                    
+                pool
+            );  (* end let countdown
+            self;
+        }
+    };
+};
