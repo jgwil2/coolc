@@ -64,10 +64,12 @@ FALSE           false
 
 DARROW          =>
 ASSIGN          <-
+LE              <=
 
 DBL_QT          \"
 
 %x COMMENT
+%x LINE_COMMENT
 %x STRING
 
 %%
@@ -94,13 +96,21 @@ DBL_QT          \"
                     return ERROR;
                 }
 
-[--.*\n]
+"--"            { BEGIN(LINE_COMMENT); }
+
+<LINE_COMMENT>"\n" {
+                    BEGIN(INITIAL);
+                    curr_lineno++;
+                }
+
+<LINE_COMMENT>. /* eat up everything else */
 
  /*
   *  The multiple-character operators.
   */
 {DARROW}        { return (DARROW); }
 {ASSIGN}        { return (ASSIGN); }
+{LE}            { return (LE); }
 
  /*
   * Keywords are case-insensitive except for the values true and false,
@@ -125,8 +135,6 @@ DBL_QT          \"
 
 "{"             { return '{'; }
 "}"             { return '}'; }
-"["             { return '['; }
-"]"             { return ']'; }
 "("             { return '('; }
 ")"             { return ')'; }
 ":"             { return ':'; }
@@ -165,6 +173,27 @@ DBL_QT          \"
 {DIGITS}        {
                     cool_yylval.symbol = inttable.add_string(yytext);
                     return INT_CONST;
+                }
+
+    /* TODO consolidate the following errors into one pattern */
+"'"             {
+                    cool_yylval.error_msg = yytext;
+                    return ERROR;
+                }
+
+">"             {
+                    cool_yylval.error_msg = yytext;
+                    return ERROR;
+                }
+
+"["             {
+                    cool_yylval.error_msg = yytext;
+                    return ERROR;
+                }
+
+"]"             {
+                    cool_yylval.error_msg = yytext;
+                    return ERROR;
                 }
 
  /*
