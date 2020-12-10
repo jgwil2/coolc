@@ -68,14 +68,22 @@ LE              <=
 
 DBL_QT          \"
 
+DASH_COMMENT    --.*\n
+
 %x COMMENT
-%x LINE_COMMENT
 %x STRING
 
 %%
 
-[ \f\r\t\v]           // eat up whitespace
-"\n" { curr_lineno++; }
+[ \f\r\t\v]     // eat up whitespace
+
+{DASH_COMMENT}  {
+                    curr_lineno++;
+                }
+
+"\n"            {
+                    curr_lineno++;
+                }
 
  /*
   *  Nested comments
@@ -95,16 +103,6 @@ DBL_QT          \"
                     BEGIN(INITIAL);
                     return ERROR;
                 }
-
-"--"            { BEGIN(LINE_COMMENT); }
-
-<LINE_COMMENT>"\n" {
-                    BEGIN(INITIAL);
-                    curr_lineno++;
-                }
-
-<LINE_COMMENT>. /* eat up everything else */
-
  /*
   *  The multiple-character operators.
   */
@@ -130,8 +128,10 @@ DBL_QT          \"
 (?i:while)      { return (WHILE); }
 (?i:case)       { return (CASE); }
 (?i:esac)       { return (ESAC); }
+(?i:of)         { return (OF); }
 (?i:new)        { return (NEW); }
 (?i:isvoid)     { return (ISVOID); }
+(?i:not)        { return (NOT); }
 
 "{"             { return '{'; }
 "}"             { return '}'; }
@@ -263,13 +263,14 @@ char* string_buf_ptr;
                     *string_buf_ptr++ = yytext[1];
                 }
 
-<STRING>[^\\\n({DBL_QT})] {
+<STRING>[^\\\n] {
                     char* yptr = yytext;
 
                     while (*yptr) {
                         if (is_max_strlen_err()) return max_strlen_err();
                         *string_buf_ptr++ = *yptr++;
                     }
+
                 }
 
 %%
