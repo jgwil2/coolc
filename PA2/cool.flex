@@ -58,8 +58,8 @@ DIGITS          [0-9]+
 TYPEID          [A-Z]({LETTER}|{DIGIT})*
 OBJECTID        [a-z]({LETTER}|{DIGIT})*
 
-TRUE            true
-FALSE           false
+TRUE            t(?i:rue)
+FALSE           f(?i:alse)
 
 
 DARROW          =>
@@ -175,23 +175,7 @@ DASH_COMMENT    --.*\n
                     return INT_CONST;
                 }
 
-    /* TODO consolidate the following errors into one pattern */
-"'"             {
-                    cool_yylval.error_msg = yytext;
-                    return ERROR;
-                }
-
-">"             {
-                    cool_yylval.error_msg = yytext;
-                    return ERROR;
-                }
-
-"["             {
-                    cool_yylval.error_msg = yytext;
-                    return ERROR;
-                }
-
-"]"             {
+[!#$%\^&_>\?`\\|\'\[\]] {
                     cool_yylval.error_msg = yytext;
                     return ERROR;
                 }
@@ -229,6 +213,7 @@ char* string_buf_ptr;
 <STRING>\n      {
                     curr_lineno++;
                     cool_yylval.error_msg = "Unterminated string constant";
+                    BEGIN(INITIAL);
                     return ERROR;
                 }
 
@@ -238,14 +223,15 @@ char* string_buf_ptr;
                     *string_buf_ptr++ = '\n';
                 }
 
+<STRING>\\\n    {
+                    if (is_max_strlen_err()) return max_strlen_err();
+                    curr_lineno++;
+                    *string_buf_ptr++ = '\n';
+                }
+
 <STRING>\\t     {
                     if (is_max_strlen_err()) return max_strlen_err();
                     *string_buf_ptr++ = '\t';
-                }
-
-<STRING>\\r     {
-                    if (is_max_strlen_err()) return max_strlen_err();
-                    *string_buf_ptr++ = '\r';
                 }
 
 <STRING>\\b     {
@@ -258,7 +244,7 @@ char* string_buf_ptr;
                     *string_buf_ptr++ = '\f';
                 }
 
-<STRING>\\(.|\n) {
+<STRING>\\.     {
                     if (is_max_strlen_err()) return max_strlen_err();
                     *string_buf_ptr++ = yytext[1];
                 }

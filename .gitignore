@@ -1,0 +1,4 @@
+*.o
+*.SKEL
+*.pl
+grading/
